@@ -1,0 +1,38 @@
+{
+  "name": "@gasboost-examples/inquiry-management",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:client": "vite build --mode client",
+    "build:server": "vite build --mode server",
+    "build": "pnpm build:client && pnpm build:server && node scripts/copy-manifest.mjs",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --check .",
+    "lint": "biome lint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gasboost/app": "^5.5.0",
+    "@gasboost/client": "^0.7.0",
+    "@tanstack/react-query": "^5.107.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@gasboost/vite": "^1.6.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/react": "^16.3.3",
+    "@types/google-apps-script": "^2.0.15",
+    "@types/node": "^24.13.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.1.0"
+  }
+}

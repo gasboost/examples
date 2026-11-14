@@ -1,0 +1,21 @@
+{
+  "name": "gasboost-examples",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "format": "prettier --check \"*.json\" \"*.yaml\" \"*.md\" scripts .github",
+    "format:write": "prettier --write .",
+    "lint": "biome lint scripts package.json biome.json .prettierrc.json",
+    "typecheck": "pnpm -r typecheck",
+    "test": "node --test scripts/*.test.mjs && pnpm -r test",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.7",
+    "prettier": "3.10.1"
+  }
+}
