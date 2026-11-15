@@ -1,5 +1,6 @@
 import type { CustomerRepository } from "../application/CustomerRepository";
-import { Customer } from "../domain/Customer";
+import { Customer, type CustomerDetails } from "../domain/Customer";
+import { customerTable } from "../../shared/tables";
 import type { DB } from "../lib/db";
 
 export class SheetCustomerRepository implements CustomerRepository {
@@ -15,18 +16,18 @@ export class SheetCustomerRepository implements CustomerRepository {
       query.limit(pageSize).offset((page - 1) * pageSize),
     );
     return {
-      customers: records.map(
-        (record) =>
-          new Customer({
-            id: record.id,
-            name: record.name,
-            email: record.email,
-            phone: record.phone,
-            note: record.note,
-            createdAt: new Date(record.createdAt),
-            updatedAt: new Date(record.updatedAt),
-          }),
-      ),
+      customers: records.map((record) => {
+        const stored = customerTable.schema.parse(record);
+        return new Customer({
+          id: stored.id,
+          name: stored.name,
+          email: stored.email,
+          phone: stored.phone,
+          note: stored.note,
+          createdAt: new Date(stored.createdAt),
+          updatedAt: new Date(stored.updatedAt),
+        });
+      }),
       total,
     };
   }
@@ -35,34 +36,66 @@ export class SheetCustomerRepository implements CustomerRepository {
     const [record] = this.db.find(
       this.db.query("Customer").and("id", "=", [id]),
     );
-    return record
-      ? new Customer({
-          id: record.id,
-          name: record.name,
-          email: record.email,
-          phone: record.phone,
-          note: record.note,
-          createdAt: new Date(record.createdAt),
-          updatedAt: new Date(record.updatedAt),
-        })
-      : null;
+    if (!record) return null;
+    const stored = customerTable.schema.parse(record);
+    return new Customer({
+      id: stored.id,
+      name: stored.name,
+      email: stored.email,
+      phone: stored.phone,
+      note: stored.note,
+      createdAt: new Date(stored.createdAt),
+      updatedAt: new Date(stored.updatedAt),
+    });
   }
 
-  save(customer: Customer) {
-    this.db.table("Customer").upsert([
+  create(details: CustomerDetails) {
+    const now = new Date().toISOString();
+    const [record] = this.db.table("Customer").create([
       {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        note: customer.note,
-        createdAt: customer.createdAt.toISOString(),
-        updatedAt: customer.updatedAt.toISOString(),
+        name: details.name,
+        email: details.email,
+        phone: details.phone,
+        note: details.note,
+        createdAt: now,
+        updatedAt: now,
       },
     ]);
+    return new Customer({
+      id: record.id,
+      name: record.name,
+      email: record.email,
+      phone: record.phone,
+      note: record.note,
+      createdAt: new Date(record.createdAt),
+      updatedAt: new Date(record.updatedAt),
+    });
   }
 
-  transaction<T>(work: () => T): T {
-    return this.db.transaction(work);
+  update(id: string, details: Partial<CustomerDetails>) {
+    return this.db.transaction(() => {
+      const existing = this.find(id);
+      if (!existing) return null;
+      const [updated] = this.db.table("Customer").update([
+        {
+          id: existing.id,
+          name: details.name === undefined ? existing.name : details.name,
+          email: details.email === undefined ? existing.email : details.email,
+          phone: details.phone === undefined ? existing.phone : details.phone,
+          note: details.note === undefined ? existing.note : details.note,
+          createdAt: existing.createdAt.toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ]);
+      return new Customer({
+        id: updated.id,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        note: updated.note,
+        createdAt: new Date(updated.createdAt),
+        updatedAt: new Date(updated.updatedAt),
+      });
+    });
   }
 }

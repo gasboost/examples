@@ -1,7 +1,7 @@
+import { Customer } from "../../src/backend/domain/Customer";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { db } from "../../src/backend/lib/db";
 import { container } from "../../src/backend/lib/di";
-import { Customer } from "../../src/backend/domain/Customer";
 import { resetDatabase } from "../mocks/db";
 
 beforeEach(() => {
@@ -23,7 +23,7 @@ afterEach(() => {
 
 test("CreateCustomer returns the created customer information and persists through the real repository", () => {
   const result = container.resolve("createCustomer").execute({
-    name: " 山田 ",
+    name: "山田",
     email: "a@example.com",
     phone: "090",
     note: "備考",
@@ -56,11 +56,4 @@ test("CreateCustomer accepts omitted optional fields", () => {
   expect(container.resolve("customerRepository").find(result.id)?.name).toBe(
     result.name,
   );
-});
-
-test("CreateCustomer delegates required name validation to Domain and saves nothing on failure", () => {
-  expect(() =>
-    container.resolve("createCustomer").execute({ name: " " }),
-  ).toThrow();
-  expect(container.resolve("customerRepository").list("", 1, 20).total).toBe(0);
 });

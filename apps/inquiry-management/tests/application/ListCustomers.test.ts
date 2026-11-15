@@ -20,20 +20,20 @@ afterEach(() => {
 
 test("ListCustomers searches and pages real persisted customers and returns result values", () => {
   const repository = container.resolve("customerRepository");
-  const now = new Date("2026-11-15T00:00:00.000Z");
-  for (let index = 1; index <= 23; index++)
-    repository.save(
-      Customer.create(
-        {
-          name: index === 23 ? "佐藤" : `山田${index}`,
-          email: "a@example.com",
-          phone: "090",
-          note: "備考",
-        },
-        `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
-        now,
-      ),
+  const saved: Customer[] = [];
+  for (let index = 1; index <= 23; index++) {
+    saved.push(
+      repository.create({
+        name: index === 23 ? "佐藤" : `山田${index}`,
+        email: "a@example.com",
+        phone: "090",
+        note: "備考",
+      }),
     );
+  }
+  const matching = saved
+    .filter((customer) => customer.name.includes("山田"))
+    .sort((a, b) => a.id.localeCompare(b.id));
   const first = container
     .resolve("listCustomers")
     .execute({ keyword: "山田", page: 1, pageSize: 20 });
@@ -50,13 +50,13 @@ test("ListCustomers searches and pages real persisted customers and returns resu
   expect(second.customers).toHaveLength(2);
   expect(second.customers[0]).not.toBeInstanceOf(Customer);
   expect(second.customers[0]).toEqual({
-    id: "11111111-1111-4111-8111-000000000021",
-    name: "山田21",
+    id: matching[20].id,
+    name: matching[20].name,
     email: "a@example.com",
     phone: "090",
     note: "備考",
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
+    createdAt: matching[20].createdAt.toISOString(),
+    updatedAt: matching[20].updatedAt.toISOString(),
   });
   expect(first.customers.map((customer) => customer.id)).not.toContain(
     second.customers[0].id,

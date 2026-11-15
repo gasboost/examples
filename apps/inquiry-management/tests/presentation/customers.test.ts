@@ -156,7 +156,10 @@ test.each([
   ["listCustomers", { page: 1.5 }],
   ["listCustomers", { pageSize: 101 }],
   ["listCustomers", { keyword: 123 }],
-  ["createCustomer", { name: " " }],
+  ["createCustomer", {}],
+  ["createCustomer", { name: "　 " }],
+  ["createCustomer", { name: null }],
+  ["createCustomer", { name: 123 }],
   ["createCustomer", { name: "山田", email: "invalid" }],
   ["createCustomer", { name: "山田", phone: 123 }],
   ["createCustomer", { name: "山田", note: null }],
@@ -164,11 +167,20 @@ test.each([
   ["updateCustomer", { id: "invalid" }],
   ["updateCustomer", { id: missingId, name: "" }],
   ["updateCustomer", { id: missingId, email: "invalid" }],
+  ["updateCustomer", { id: missingId, phone: 123 }],
+  ["updateCustomer", { id: missingId, note: null }],
   ["updateCustomer", { id: missingId, updatedAt: "forged" }],
 ])("%s validates untrusted input %j", async (name, input) => {
+  const execute = vi.spyOn(
+    container.resolve(
+      name as "listCustomers" | "createCustomer" | "updateCustomer",
+    ),
+    "execute",
+  );
   await expect(
     app.dispatch(name as string, input, authenticated("staff")),
   ).rejects.toThrow("INVALID_INPUT");
+  expect(execute).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -197,4 +209,33 @@ test("role revocation and permission overrides are reflected in subsequent calls
     JSON.parse((await app.dispatch("listCustomers", {}, metadata)).contents)
       .customers,
   ).toEqual([]);
+});
+
+test("Presentation rejects invalid edits before the use case and retains saved customer information", async () => {
+  const metadata = authenticated("staff");
+  const created = JSON.parse(
+    (
+      await app.dispatch(
+        "createCustomer",
+        { name: "山田", email: "a@example.com" },
+        metadata,
+      )
+    ).contents,
+  );
+  const execute = vi.spyOn(container.resolve("updateCustomer"), "execute");
+  for (const invalid of [
+    { name: "　 " },
+    { email: "invalid" },
+    { phone: 123 },
+    { note: null },
+  ]) {
+    await expect(
+      app.dispatch("updateCustomer", { id: created.id, ...invalid }, metadata),
+    ).rejects.toThrow("INVALID_INPUT");
+  }
+  expect(execute).not.toHaveBeenCalled();
+  expect(
+    JSON.parse((await app.dispatch("listCustomers", {}, metadata)).contents)
+      .customers,
+  ).toEqual([created]);
 });

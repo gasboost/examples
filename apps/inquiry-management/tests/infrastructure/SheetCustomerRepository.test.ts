@@ -1,63 +1,77 @@
-import { afterEach, beforeEach, expect, test } from "vitest";
-import { authorization } from "../../src/backend/lib/auth";
-import { db } from "../../src/backend/lib/db";
 import { Customer } from "../../src/backend/domain/Customer";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { db } from "../../src/backend/lib/db";
 import { SheetCustomerRepository } from "../../src/backend/infrastructure/SheetCustomerRepository";
 import { resetDatabase } from "../mocks/db";
 
 const repository = new SheetCustomerRepository(db);
-const id = "11111111-1111-4111-8111-111111111111";
 const now = new Date("2026-11-15T00:00:00.000Z");
-beforeEach(async () => {
+beforeEach(() => {
   resetDatabase();
-  await authorization.role.assign("staff", "一般スタッフ");
   db.setPrincipal({
     userId: "staff",
     customerRead: true,
     customerCreate: true,
     customerUpdate: true,
   });
+  vi.useFakeTimers();
+  vi.setSystemTime(now);
 });
 afterEach(() => {
   db.setPrincipal({});
   resetDatabase();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
-test("real SheetORM round-trips a Customer and updates every field", () => {
-  const original = Customer.create(
-    {
-      name: "山田",
-      email: "yamada@example.com",
-      phone: "03-1234",
-      note: "改行\n備考",
-    },
-    id,
-    now,
-  );
-  repository.save(original);
-  const [stored] = db.table("Customer").find();
-  expect(stored).toEqual({
-    id,
+test("SheetORM assigns UUIDs and the repository saves, restores and reloads customer information", () => {
+  const generated = "11111111-1111-4111-8111-111111111111";
+  vi.spyOn(Utilities, "getUuid").mockReturnValue(generated);
+  const original = repository.create({
     name: "山田",
     email: "yamada@example.com",
     phone: "03-1234",
     note: "改行\n備考",
-    createdAt: "2026-11-15T00:00:00.000Z",
-    updatedAt: "2026-11-15T00:00:00.000Z",
   });
-  const restored = repository.find(id);
-  expect(restored).toBeInstanceOf(Customer);
-  expect(restored).toEqual(original);
-  expect(restored?.createdAt).toBeInstanceOf(Date);
-  const updated = original.update(
-    { name: "佐藤", email: "", phone: "", note: "新しい備考" },
-    new Date("2026-11-15T01:00:00.000Z"),
-  );
-  repository.transaction(() => repository.save(updated));
+  expect(db.definition("Customer").autoNumbering).toBe("uuid");
+  expect(original).toBeInstanceOf(Customer);
+  expect(original.id).toBe(generated);
+  const [stored] = db.table("Customer").find();
+  expect(stored).toEqual({
+    id: generated,
+    name: "山田",
+    email: "yamada@example.com",
+    phone: "03-1234",
+    note: "改行\n備考",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  });
+  expect(repository.find(original.id)).toBeInstanceOf(Customer);
+  expect(repository.find(original.id)).toEqual({
+    ...original,
+    createdAt: now,
+    updatedAt: now,
+  });
+  vi.setSystemTime("2026-11-15T01:00:00.000Z");
+  const updated = repository.update(original.id, {
+    name: "佐藤",
+    email: "",
+    phone: "",
+    note: "新しい備考",
+  });
   db.definition("Customer").cache.clear();
-  const reloaded = new SheetCustomerRepository(db).find(id);
+  const reloaded = new SheetCustomerRepository(db).find(original.id);
+  expect(reloaded).toBeInstanceOf(Customer);
   expect(reloaded).toEqual(updated);
-  expect(reloaded?.updatedAt).toEqual(new Date("2026-11-15T01:00:00.000Z"));
+  expect(updated).toEqual({
+    id: original.id,
+    name: "佐藤",
+    email: "",
+    phone: "",
+    note: "新しい備考",
+    createdAt: now,
+    updatedAt: new Date("2026-11-15T01:00:00.000Z"),
+  });
   expect(db.table("Customer").find()[0]).toEqual({
     ...stored,
     name: "佐藤",
@@ -66,18 +80,27 @@ test("real SheetORM round-trips a Customer and updates every field", () => {
     note: "新しい備考",
     updatedAt: "2026-11-15T01:00:00.000Z",
   });
-  expect(repository.find("22222222-2222-4222-8222-222222222222")).toBeNull();
+});
+
+test("partial updates preserve omitted optional fields and missing IDs never create rows", () => {
+  const original = repository.create({
+    name: "山田",
+    email: "a@example.com",
+    phone: "03",
+    note: "備考",
+  });
+  expect(
+    repository.update(original.id, { name: "佐藤", email: undefined }),
+  ).toEqual({ ...original, name: "佐藤" });
+  const missing = "22222222-2222-4222-8222-222222222222";
+  expect(repository.find(missing)).toBeNull();
+  expect(repository.update(missing, { name: "不在" })).toBeNull();
+  expect(repository.list("", 1, 20).total).toBe(1);
 });
 
 test("search and paging keep totals and return empty results", () => {
   for (let index = 1; index <= 23; index++)
-    repository.save(
-      Customer.create(
-        { name: index === 23 ? "佐藤" : `山田${index}` },
-        `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
-        now,
-      ),
-    );
+    repository.create({ name: index === 23 ? "佐藤" : `山田${index}` });
   expect(repository.list("山田", 1, 20).customers).toHaveLength(20);
   expect(repository.list("山田", 2, 20).customers).toHaveLength(2);
   expect(repository.list("山田", 2, 20).total).toBe(22);
@@ -86,4 +109,33 @@ test("search and paging keep totals and return empty results", () => {
     customers: [],
     total: 0,
   });
+});
+
+test("SheetORM enforces record schema on writes and rolls back invalid updates", () => {
+  expect(() => repository.create({ name: "山田", email: "invalid" })).toThrow();
+  expect(repository.list("", 1, 20).total).toBe(0);
+  const original = repository.create({ name: "山田" });
+  expect(() => repository.update(original.id, { email: "invalid" })).toThrow();
+  expect(repository.find(original.id)).toEqual(original);
+});
+
+test.each([
+  { id: "invalid" },
+  { createdAt: "invalid-date" },
+  { updatedAt: "invalid-date" },
+])("repository rejects malformed stored records: %j", (invalid) => {
+  // Seed bypasses write validation to represent corrupted external sheet data.
+  db.seed("Customer", [
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "破損データ",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      ...invalid,
+    },
+  ]);
+  expect(() => repository.list("", 1, 20)).toThrow();
+  expect(() =>
+    repository.find(invalid.id ?? "11111111-1111-4111-8111-111111111111"),
+  ).toThrow();
 });

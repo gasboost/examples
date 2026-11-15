@@ -15,7 +15,11 @@ function resolveSpreadsheetId(): string {
 }
 export const spreadsheetId = resolveSpreadsheetId();
 export const sheetTables = [
-  new SheetTable({ ...customerTable, dbId: spreadsheetId }),
+  new SheetTable({
+    ...customerTable,
+    dbId: spreadsheetId,
+    autoNumbering: "uuid",
+  }),
   new SheetTable({ ...authTables.user, dbId: spreadsheetId }),
   new SheetTable({ ...authTables.account, dbId: spreadsheetId }),
   new SheetTable({ ...authTables.passwordReset, dbId: spreadsheetId }),

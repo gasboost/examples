@@ -1,16 +1,11 @@
-import { Customer, type CustomerDetails } from "../domain/Customer";
+import type { CustomerDetails } from "../domain/Customer";
 import type { CustomerRepository } from "./CustomerRepository";
 
 export class CreateCustomer {
-  constructor(
-    readonly repository: CustomerRepository,
-    readonly uuid: () => string,
-    readonly now: () => Date,
-  ) {}
+  constructor(readonly repository: CustomerRepository) {}
 
   execute(input: CustomerDetails) {
-    const customer = Customer.create(input, this.uuid(), this.now());
-    this.repository.save(customer);
+    const customer = this.repository.create(input);
     return {
       id: customer.id,
       name: customer.name,

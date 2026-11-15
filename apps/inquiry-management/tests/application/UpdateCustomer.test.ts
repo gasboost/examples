@@ -1,11 +1,11 @@
+import { Customer } from "../../src/backend/domain/Customer";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { db } from "../../src/backend/lib/db";
 import { container } from "../../src/backend/lib/di";
-import { Customer } from "../../src/backend/domain/Customer";
 import { CustomerNotFound } from "../../src/backend/application/UpdateCustomer";
 import { resetDatabase } from "../mocks/db";
 
-const id = "11111111-1111-4111-8111-111111111111";
+let id: string;
 const originalTime = new Date("2026-11-15T00:00:00.000Z");
 beforeEach(() => {
   resetDatabase();
@@ -15,16 +15,14 @@ beforeEach(() => {
     customerCreate: true,
     customerUpdate: true,
   });
-  container
-    .resolve("customerRepository")
-    .save(
-      Customer.create(
-        { name: "山田", email: "a@example.com", phone: "090", note: "備考" },
-        id,
-        originalTime,
-      ),
-    );
   vi.useFakeTimers();
+  vi.setSystemTime(originalTime);
+  id = container.resolve("customerRepository").create({
+    name: "山田",
+    email: "a@example.com",
+    phone: "090",
+    note: "備考",
+  }).id;
   vi.setSystemTime("2026-11-15T01:00:00.000Z");
 });
 afterEach(() => {
@@ -48,6 +46,7 @@ test("UpdateCustomer changes a persisted customer and returns result values whil
     updatedAt: "2026-11-15T01:00:00.000Z",
   });
   const saved = container.resolve("customerRepository").find(id);
+  expect(saved).toBeInstanceOf(Customer);
   expect(saved?.name).toBe("山田 花子");
   expect(saved?.email).toBe("");
   expect(saved?.phone).toBe("090");
@@ -62,13 +61,4 @@ test("UpdateCustomer rejects a missing customer without creating it", () => {
     container.resolve("updateCustomer").execute({ id: missing, name: "不在" }),
   ).toThrow(CustomerNotFound);
   expect(container.resolve("customerRepository").find(missing)).toBeNull();
-});
-
-test("UpdateCustomer preserves the stored customer when a Domain invariant fails", () => {
-  expect(() =>
-    container.resolve("updateCustomer").execute({ id, name: " " }),
-  ).toThrow();
-  const unchanged = container.resolve("customerRepository").find(id);
-  expect(unchanged?.name).toBe("山田");
-  expect(unchanged?.updatedAt).toEqual(originalTime);
 });

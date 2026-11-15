@@ -30,15 +30,11 @@ container.register({
   ).singleton(),
   createCustomer: asFunction(
     ({ customerRepository }: Dependencies) =>
-      new CreateCustomer(
-        customerRepository,
-        () => Utilities.getUuid(),
-        () => new Date(),
-      ),
+      new CreateCustomer(customerRepository),
   ).singleton(),
   updateCustomer: asFunction(
     ({ customerRepository }: Dependencies) =>
-      new UpdateCustomer(customerRepository, () => new Date()),
+      new UpdateCustomer(customerRepository),
   ).singleton(),
   db: asValue(db),
   auth: asValue(auth),

@@ -1,4 +1,4 @@
-import type { Customer } from "../domain/Customer";
+import type { Customer, CustomerDetails } from "../domain/Customer";
 
 export interface CustomerRepository {
   list(
@@ -7,6 +7,6 @@ export interface CustomerRepository {
     pageSize: number,
   ): { customers: Customer[]; total: number };
   find(id: string): Customer | null;
-  save(customer: Customer): void;
-  transaction<T>(work: () => T): T;
+  create(details: CustomerDetails): Customer;
+  update(id: string, details: Partial<CustomerDetails>): Customer | null;
 }

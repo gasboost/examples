@@ -20,7 +20,7 @@ beforeEach(async () => {
     customerCreate: true,
     customerUpdate: true,
   });
-  db.table("Customer").create([row]);
+  row.id = db.table("Customer").create([row])[0].id;
 });
 afterEach(() => {
   db.setPrincipal({});

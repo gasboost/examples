@@ -13,10 +13,18 @@
 
 - Domainは他の3層に依存しない。ApplicationはDomainとApplication側のinterfaceを使用し、Infrastructureの具象に依存しない。InfrastructureはApplicationのinterfaceとDomainに依存し、PresentationはApplicationを呼び出す。具象の接続は既存DI基盤で行う。
 - **1 UseCase（1操作）= 1クラス**とし、各クラスは単一の `execute` を持つ。複数APIを `Customers` 等の1クラスに集約しない。DI登録・Handlerからのresolve・Application結合テストもUseCase単位にする。1 Issueに複数APIを含むことと、1クラスに複数操作を含むことは別である。
-- **Domainは永続化・通信形式を知らない。** `toRecord()` / `fromRecord()` 等の永続化都合のメソッド（単なる改名も含む）、SheetORM Record・保存用Schema・RPC DTOへの依存を禁止する。DomainとRecordの変換はInfrastructureのRepositoryが担当する。Domainは業務上の属性・不変条件・状態変更に専念する。
+- **Domainは永続化・通信形式を知らない。** `toRecord()` / `fromRecord()` 等の永続化都合のメソッド（単なる改名も含む）、SheetORM Record・保存用Schema・RPC DTOへの依存を禁止する。Domainが必要な機能では、DomainとRecordの変換はInfrastructureのRepositoryが担当する。Domainは業務上の属性・不変条件・状態変更に専念する。
 - **ApplicationはDomainも永続化Recordも戻り値にしない。** 業務ロジックはDomainへ、永続化はRepositoryへ委譲し、APIが必要とする結果を返す。永続化RecordをそのままAPIの戻り値として流用しない。
 - **ヘルパー関数とprivate methodは禁止。** 処理をそれらに押し込んで責務の混在を隠さず、適切なクラス・オブジェクト・層へ責務を分離する。
 - 実際の機能に必要なものだけ実装する。目的なくレイヤーごとの空ファイルやinterfaceを一括生成しない。
+
+## Domainに書いてはいけないこと
+
+- **外部入力の型・形式・必須・文字数・メール形式などの入力バリデーションをDomainへ置かない。** これはPresentationの責務とする。Frontendのフォーム検証だけで済ませず、サーバー側の入力境界でも検証する。
+- **SheetORM RecordのZodスキーマ検証、UUID・日時の形式検証、Unique等の永続化制約をDomainに持ち込まない。** これらはInfrastructure / SheetORMの責務とする。DomainでZodを利用する場合も、業務上の不変条件を表現する場合に限定し、形式検証を目的として利用しない。
+- Domainは業務ルール・不変条件・状態遷移に集中する。検証を置く理由は、入力形式の確認ではなく、完了済み問い合わせの通常編集や担当未設定での対応開始など、**業務上成立しない操作・状態を防ぐ場合のみ**とする。
+- **業務ルールのないCRUDデータにDomain Entityや架空の業務検証を義務付けない。** 不要なDomainクラス・メソッド・テストを作らない。入力検証の配置とDomainモデルの採否は分けて判断する。Repositoryが業務上の実体を保存・復元する構成では、Domainモデルは業務属性を持ち、Repository interfaceはそのモデルを扱う。形式検証の撤去を理由にモデルを単なるRecordや代替DTOへ置き換えない。
+- **SheetORMが持つ採番・制約・楽観的ロック等を必要以上に再実装しない。** 利用しているパッケージの公式ドキュメントと実APIを先に確認する。UUID採番・日時生成等の技術的な処理、Recordへの変換・検証は適切な境界で扱う。
 
 ## RPCの型と入力検証
 
@@ -43,11 +51,11 @@
 | 対象                        | 必須のテストと範囲                                                                                            | モック・Fakeの許容範囲                                     |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | Domain                      | 単体テスト。業務ルール・状態遷移・不変条件を検証する                                                          | Domain自体は実物                                           |
-| Infrastructure / Repository | 結合テスト。実RepositoryでDomainを正しく永続化・復元できることを検証する                                      | GAS等の外部実行環境にはIn-Memory Fakeを使う                |
+| Infrastructure / Repository | 結合テスト。実Repositoryでデータを正しく保存・復元・再読込できることを検証する                                | GAS等の外部実行環境にはIn-Memory Fakeを使う                |
 | Application / UseCase       | 結合テスト。実UseCaseと実Repositoryを接続して処理結果を検証する                                               | 外部環境のIn-Memory Fakeは可。**Repositoryのモックは禁止** |
 | Presentation / API          | **APIごとに結合テスト**。実際の認証・認可Middlewareを通り、Handlerから正しいUseCaseが呼ばれることまで検証する | **UseCaseのモックは可**。認証・認可Middlewareは実物        |
 
-- **UseCaseごとの実Repository結合テスト、およびRepositoryの保存・復元・再読込テストを必須**とする。Domain単体テストは不変条件・業務操作を対象とし、永続化マッピングを検証しない。
+- **UseCaseごとの実Repository結合テスト、およびRepositoryの保存・復元・再読込テストを必須**とする。Domain単体テストは実在する業務上の不変条件・業務操作のみを対象とし、入力形式や永続化マッピングを検証しない。Domain固有ルールがなければDomainテストを作らず、不正入力はPresentation、Recordのスキーマ・保存・復元はRepositoryの結合テストで検証する。
 - RLSは **専用のテストファイル** で検証する。権限のあるPrincipal・ないPrincipal、許可・拒否の代表ケースを含める。
 - Fake化するのは外部環境・GAS組み込みサービス等の境界。Application結合テストでRepositoryをモックして通さない。
 - `tests/mocks/` にGASランタイム・SheetORM用のIn-Memory Fakeと共通テスト環境を集約する。現行の `runtime.ts`・`db.ts` とVitestの `setupFiles` を確認して再利用し、各テストで勝手にFakeを量産しない。

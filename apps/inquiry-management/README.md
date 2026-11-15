@@ -57,7 +57,7 @@ pnpm build
 pnpm console
 ```
 
-顧客機能には Domain 単体テスト、実 Repository / UseCase / API の結合テスト、専用 RLS テスト、React Testing Library による画面操作テストがあります。`tests/mocks/runtime.ts` は既存 GAS Fake を登録し、`tests/mocks/db.ts` は `sheets.ts` の Gateway のみを InMemoryGateway に差し替えます。各テストは DB・Principal・セッションをリセットし、この基盤を利用します。
+顧客機能には実 Repository / UseCase / API の結合テスト、専用 RLS テスト、React Testing Library による画面操作テストがあります。Customerは業務上の属性を持つDomainモデルとして残し、Repositoryが保存・復元します。Customerには独自の業務検証を作り足さず、形式検証目的のDomainテストは設けていません。入力の形式・必須検証はPresentation、Recordの検証・保存・復元はRepository / SheetORMのテストで確認します。`tests/mocks/runtime.ts` は既存 GAS Fake を登録し、`tests/mocks/db.ts` は `sheets.ts` の Gateway のみを InMemoryGateway に差し替えます。各テストは DB・Principal・セッションをリセットし、この基盤を利用します。
 
 Prettier は生成物も含めて整形します。Biome は TypeScript / JSON / CSS を検証し、Tailwind CSS v4 の構文を有効にしています。GAS の HTML テンプレート構文は Prettier で検証します。shadcn の汎用 Label / InputGroup が props で制御するラベル・キーボード操作に対してのみ、Biome の静的判定を限定調整しています。
 
@@ -79,9 +79,9 @@ Prettier は生成物も含めて整形します。Biome は TypeScript / JSON /
 
 ## 顧客管理
 
-ログイン後のホームから「顧客管理」を開きます。氏名の部分一致検索と20件単位のページ切り替え、新規登録、編集を行えます。氏名は必須、メールは入力時に形式を検証し、電話・備考は任意の文字列です。UUIDと作成・更新日時（UTCのISO形式）はサーバーで設定します。
+ログイン後のホームから「顧客管理」を開きます。氏名の部分一致検索と20件単位のページ切り替え、新規登録、編集を行えます。氏名は必須、メールは入力時に形式を検証し、電話・備考は任意の文字列です。UUIDはSheetTableの `autoNumbering: "uuid"` によりSheetORMが採番し、作成・更新日時（UTCのISO形式）はRepositoryが設定します。
 
-`listCustomers` / `createCustomer` / `updateCustomer` はそれぞれ既存の認証・操作別認可Middlewareを通り、DIで接続したUseCaseとSheetORM Repositoryを利用します。RLSは認証済みユーザーの最新の有効権限から設定したPrincipalを参照し、顧客の取得・登録・更新を制御します。Principalは成功・失敗ともにリクエスト終了時にクリアします。削除APIはありません。
+`listCustomers` / `createCustomer` / `updateCustomer` はそれぞれ既存の認証・操作別認可Middlewareを通り、DIで接続した操作ごとのUseCaseとSheetORM Repositoryを利用します。入力の形式・必須項目はPresentationで検証し、保存Recordのスキーマ・日時変換はInfrastructureに閉じています。RLSは認証済みユーザーの最新の有効権限から設定したPrincipalを参照し、顧客の取得・登録・更新を制御します。Principalは成功・失敗ともにリクエスト終了時にクリアします。削除APIはありません。
 
 新規環境ではBootstrapがCustomerテーブルも準備します。初期設定済みの既存Sheetsへ導入する場合は、先に `Customer` シートを追加し、1行目に `name`, `email`, `phone`, `note`, `id`, `createdAt`, `updatedAt` の列をこの順で用意してください。既存の認証テーブルや初期化状態は削除しません。
 
