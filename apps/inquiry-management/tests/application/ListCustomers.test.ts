@@ -22,14 +22,18 @@ test("ListCustomers searches and pages real persisted customers and returns resu
   const repository = container.resolve("customerRepository");
   const saved: Customer[] = [];
   for (let index = 1; index <= 23; index++) {
-    saved.push(
-      repository.create({
-        name: index === 23 ? "佐藤" : `山田${index}`,
-        email: "a@example.com",
-        phone: "090",
-        note: "備考",
-      }),
-    );
+    const now = new Date("2026-11-15T00:00:00.000Z");
+    const customer = new Customer({
+      id: `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
+      name: index === 23 ? "佐藤" : `山田${index}`,
+      email: "a@example.com",
+      phone: "090",
+      note: "備考",
+      createdAt: now,
+      updatedAt: now,
+    });
+    repository.save(customer);
+    saved.push(customer);
   }
   const matching = saved
     .filter((customer) => customer.name.includes("山田"))

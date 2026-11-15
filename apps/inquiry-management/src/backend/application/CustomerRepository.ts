@@ -1,12 +1,13 @@
-import type { Customer, CustomerDetails } from "../domain/Customer";
+import type { Customer } from "../domain/Customer";
+
+export type CustomerSearch = {
+  id?: string;
+  keyword?: string;
+  offset?: number;
+  limit?: number;
+};
 
 export interface CustomerRepository {
-  list(
-    keyword: string,
-    page: number,
-    pageSize: number,
-  ): { customers: Customer[]; total: number };
-  find(id: string): Customer | null;
-  create(details: CustomerDetails): Customer;
-  update(id: string, details: Partial<CustomerDetails>): Customer | null;
+  find(parameter: CustomerSearch): Customer[];
+  save(customer: Customer): void;
 }

@@ -4,10 +4,12 @@ export class ListCustomers {
   constructor(readonly repository: CustomerRepository) {}
 
   execute(input: { keyword: string; page: number; pageSize: number }) {
-    const { customers, total } = this.repository.list(
-      input.keyword,
-      input.page,
-      input.pageSize,
+    // One read keeps the total and page based on the same set of aggregates.
+    const matching = this.repository.find({ keyword: input.keyword });
+    const total = matching.length;
+    const customers = matching.slice(
+      (input.page - 1) * input.pageSize,
+      input.page * input.pageSize,
     );
     return {
       customers: customers.map((customer) => ({

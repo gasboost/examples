@@ -29,4 +29,16 @@ export class Customer {
     this.createdAt = attributes.createdAt;
     this.updatedAt = attributes.updatedAt;
   }
+
+  update(details: Partial<CustomerDetails>, now: Date) {
+    return new Customer({
+      id: this.id,
+      name: details.name === undefined ? this.name : details.name,
+      email: details.email === undefined ? this.email : details.email,
+      phone: details.phone === undefined ? this.phone : details.phone,
+      note: details.note === undefined ? this.note : details.note,
+      createdAt: this.createdAt,
+      updatedAt: now,
+    });
+  }
 }

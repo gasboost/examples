@@ -18,6 +18,15 @@
 - **ヘルパー関数とprivate methodは禁止。** 処理をそれらに押し込んで責務の混在を隠さず、適切なクラス・オブジェクト・層へ責務を分離する。
 - 実際の機能に必要なものだけ実装する。目的なくレイヤーごとの空ファイルやinterfaceを一括生成しない。
 
+## Repositoryの公開契約とAggregateの状態変更
+
+- **Repositoryは原則 `find(parameter): DomainAggregate[]` と `save(aggregate): void` のみ公開する。** `list` / `create` / `update` / `delete` のようなユースケース操作別メソッドを増やさない。例外が明確に必要な場合は、その根拠を示す。
+- `find` の検索条件なし・ID・キーワード・ページング等はパラメータで表し、Domain Aggregateの配列を返す。0件は空配列とし、SheetORM Record・DTOや総件数付き一覧レスポンスをそのまま返さない。総件数・ページ情報はUseCaseで組み立て、必要な取得量のトレードオフを説明する。
+- `save` はAggregateを永続化し、戻り値を持たない。InfrastructureのRepositoryはQuery構築・RecordとAggregateの相互変換・保存のみを担当する。業務操作やレスポンス構築、既存Aggregateへの変更項目の合成を行わず、SheetORMのCRUDを薄く再公開しない。
+- **Aggregateの状態を変更できるのはDomainのみ。** Applicationは取得・対象なしの判定・Domainの状態変更メソッド呼び出し・保存を調整する。変更しなかった属性の保持や更新日時の整合はDomainが担い、ApplicationやRepositoryに属性の合成を書かない。
+- 入力形式の検証をDomainに置かないことと、Domainから状態変更の振る舞いを取り除くことを混同しない。Domain単体テストは状態変更・未指定属性の保持、UseCase結合テストは実Repositoryによる取得→Domainの変更→保存、Repository結合テストは保存・復元を検証する。
+- UUID採番・Queryのページング・トランザクション・ロック等の利用方法とRepositoryの公開契約は区別する。`save(): void` の前後でAggregateのIDがいつ確定するかを明示する。Customerでは保存前に既存の `Utilities.getUuid()` でIDを確定し、SheetORMに同じIDを保存させるためDBの自動再採番は使わない。取得から保存までのトランザクションには既存SheetORMを利用する。
+
 ## Domainに書いてはいけないこと
 
 - **外部入力の型・形式・必須・文字数・メール形式などの入力バリデーションをDomainへ置かない。** これはPresentationの責務とする。Frontendのフォーム検証だけで済ませず、サーバー側の入力境界でも検証する。
@@ -55,7 +64,7 @@
 | Application / UseCase       | 結合テスト。実UseCaseと実Repositoryを接続して処理結果を検証する                                               | 外部環境のIn-Memory Fakeは可。**Repositoryのモックは禁止** |
 | Presentation / API          | **APIごとに結合テスト**。実際の認証・認可Middlewareを通り、Handlerから正しいUseCaseが呼ばれることまで検証する | **UseCaseのモックは可**。認証・認可Middlewareは実物        |
 
-- **UseCaseごとの実Repository結合テスト、およびRepositoryの保存・復元・再読込テストを必須**とする。Domain単体テストは実在する業務上の不変条件・業務操作のみを対象とし、入力形式や永続化マッピングを検証しない。Domain固有ルールがなければDomainテストを作らず、不正入力はPresentation、Recordのスキーマ・保存・復元はRepositoryの結合テストで検証する。
+- **UseCaseごとの実Repository結合テスト、およびRepositoryの保存・復元・再読込テストを必須**とする。Domain単体テストは実在する業務上の不変条件・業務操作のみを対象とし、入力形式や永続化マッピングを検証しない。独自の検証ルールがなくても、Domainに状態変更の振る舞いがあれば未指定属性の保持などを単体テストする。不正入力はPresentation、Recordのスキーマ・保存・復元はRepositoryの結合テストで検証する。
 - RLSは **専用のテストファイル** で検証する。権限のあるPrincipal・ないPrincipal、許可・拒否の代表ケースを含める。
 - Fake化するのは外部環境・GAS組み込みサービス等の境界。Application結合テストでRepositoryをモックして通さない。
 - `tests/mocks/` にGASランタイム・SheetORM用のIn-Memory Fakeと共通テスト環境を集約する。現行の `runtime.ts`・`db.ts` とVitestの `setupFiles` を確認して再利用し、各テストで勝手にFakeを量産しない。

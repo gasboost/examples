@@ -39,7 +39,9 @@ test("CreateCustomer returns the created customer information and persists throu
     createdAt: "2026-11-15T00:00:00.000Z",
     updatedAt: "2026-11-15T00:00:00.000Z",
   });
-  const saved = container.resolve("customerRepository").find(result.id);
+  const saved = container
+    .resolve("customerRepository")
+    .find({ id: result.id })[0];
   expect(saved).toBeInstanceOf(Customer);
   expect(saved?.name).toBe("山田");
   expect(saved?.email).toBe("a@example.com");
@@ -53,7 +55,7 @@ test("CreateCustomer accepts omitted optional fields", () => {
     .resolve("createCustomer")
     .execute({ name: "任意項目なし" });
   expect(result.name).toBe("任意項目なし");
-  expect(container.resolve("customerRepository").find(result.id)?.name).toBe(
-    result.name,
-  );
+  expect(
+    container.resolve("customerRepository").find({ id: result.id })[0]?.name,
+  ).toBe(result.name);
 });

@@ -18,7 +18,6 @@ export const sheetTables = [
   new SheetTable({
     ...customerTable,
     dbId: spreadsheetId,
-    autoNumbering: "uuid",
   }),
   new SheetTable({ ...authTables.user, dbId: spreadsheetId }),
   new SheetTable({ ...authTables.account, dbId: spreadsheetId }),
