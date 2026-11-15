@@ -11,12 +11,13 @@ export const repository = new SheetOrmAuthRepository({
   db,
   schema: authTables.schema,
 });
+export const authorizationRepository = new SheetOrmAuthorizationRepository({
+  db,
+  schema: authorizationTables.schema,
+});
 export const authorization = new AppsScriptAuthorization({
   policy,
-  repository: new SheetOrmAuthorizationRepository({
-    db,
-    schema: authorizationTables.schema,
-  }),
+  repository: authorizationRepository,
 });
 export const auth = new AppsScriptAuth({
   repository,

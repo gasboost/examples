@@ -3,6 +3,7 @@ import {
   authTables,
   authorizationTables,
   customerTable,
+  inquiryTable,
 } from "../../shared/tables";
 
 function resolveSpreadsheetId(): string {
@@ -15,6 +16,11 @@ function resolveSpreadsheetId(): string {
 }
 export const spreadsheetId = resolveSpreadsheetId();
 export const sheetTables = [
+  new SheetTable({
+    ...inquiryTable,
+    dbId: spreadsheetId,
+    versionColumn: "version",
+  }),
   new SheetTable({
     ...customerTable,
     dbId: spreadsheetId,

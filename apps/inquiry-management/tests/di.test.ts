@@ -42,16 +42,26 @@ test("authenticated handlers resolve existing dependencies and use only the sess
       expect(di).toBe(container);
       expect(Object.keys(di.registrations).sort()).toEqual([
         "auth",
+        "authRepository",
         "createCustomer",
+        "createInquiry",
         "customerRepository",
         "db",
+        "inquiryRepository",
         "listCustomers",
+        "listInquiries",
+        "listInquiryDetail",
         "updateCustomer",
+        "updateInquiry",
       ]);
       expect(di.resolve("db")).toBe(db);
       expect(di.resolve("auth")).toBe(auth);
       expect(db.principal).toEqual({
         userId: "user-a",
+        isAdmin: false,
+        inquiryRead: false,
+        inquiryCreate: false,
+        inquiryUpdate: false,
         customerRead: false,
         customerCreate: false,
         customerUpdate: false,
@@ -77,6 +87,10 @@ test("consecutive users replace the whole principal and clear it after async han
     await Promise.resolve();
     expect(db.principal).toEqual({
       userId: context.state.get("session").userId,
+      isAdmin: false,
+      inquiryRead: false,
+      inquiryCreate: false,
+      inquiryUpdate: false,
       customerRead: false,
       customerCreate: false,
       customerUpdate: false,
@@ -91,6 +105,10 @@ test("consecutive users replace the whole principal and clear it after async han
     });
     expect(JSON.parse(response.contents)).toEqual({
       userId: session.userId,
+      isAdmin: false,
+      inquiryRead: false,
+      inquiryCreate: false,
+      inquiryUpdate: false,
       customerRead: false,
       customerCreate: false,
       customerUpdate: false,
@@ -124,6 +142,10 @@ test.each(["throw", "reject"])(
         ? [
             {
               userId: "user-a",
+              isAdmin: false,
+              inquiryRead: false,
+              inquiryCreate: false,
+              inquiryUpdate: false,
               customerRead: false,
               customerCreate: false,
               customerUpdate: false,
@@ -132,12 +154,20 @@ test.each(["throw", "reject"])(
         : [
             {
               userId: "user-a",
+              isAdmin: false,
+              inquiryRead: false,
+              inquiryCreate: false,
+              inquiryUpdate: false,
               customerRead: false,
               customerCreate: false,
               customerUpdate: false,
             },
             {
               userId: "user-a",
+              isAdmin: false,
+              inquiryRead: false,
+              inquiryCreate: false,
+              inquiryUpdate: false,
               customerRead: false,
               customerCreate: false,
               customerUpdate: false,
@@ -159,6 +189,10 @@ test.each(["throw", "reject"])(
     );
     expect(JSON.parse(response.contents)).toEqual({
       userId: "user-b",
+      isAdmin: false,
+      inquiryRead: false,
+      inquiryCreate: false,
+      inquiryUpdate: false,
       customerRead: false,
       customerCreate: false,
       customerUpdate: false,
@@ -194,6 +228,10 @@ test("authentication blocks missing, unknown and expired sessions after a succes
         "testDiProtected",
         {
           userId: "user-a",
+          isAdmin: false,
+          inquiryRead: false,
+          inquiryCreate: false,
+          inquiryUpdate: false,
           customerRead: false,
           customerCreate: false,
           customerUpdate: false,
