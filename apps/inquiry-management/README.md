@@ -1,6 +1,6 @@
 # 問い合わせ管理
 
-`@gasboost/create@0.2.0` の CLI で生成した公式サンプルのアプリ基盤です。合意済み仕様は [REQUIREMENTS.md](REQUIREMENTS.md) を参照してください。顧客の検索・登録・編集に対応しています。問い合わせ・スタッフ管理は後続 Issue で追加します。
+`@gasboost/create@0.2.0` の CLI で生成した公式サンプルのアプリ基盤です。合意済み仕様は [REQUIREMENTS.md](REQUIREMENTS.md) を参照してください。顧客の検索・登録・編集に対応しています。問い合わせの登録・検索・詳細・通常編集APIにも対応しています。問い合わせ画面・状態遷移・スタッフ管理は後続 Issue で追加します。
 
 ## 生成元と調整範囲
 
@@ -88,3 +88,19 @@ Prettier は生成物も含めて整形します。Biome は TypeScript / JSON /
 問い合わせフォームへは `src/frontend/features/customers/CustomerPicker.tsx` を組み込みます。`value` に選択中の顧客または `null`、`onChange` に顧客を受け取るコールバックを渡してください。既存顧客の検索・選択と新規登録ダイアログを備え、登録成功時は返却された顧客（IDを含む）を自動選択します。AuthProvider・QueryClientProvider・Router配下で使用します。問い合わせ登録画面自体は含みません。
 
 一覧は `find({ keyword })` で一致するCustomerを一度取得し、UseCaseで総件数と20件単位のページを組み立てます。総件数と表示内容を同じ取得結果に基づかせるため、対象ページ以外の一致データもサーバーメモリへ読み込みます。Repositoryの検索条件はID・キーワード・offset / limitに対応します。
+
+## 問い合わせAPI
+
+`createInquiry` / `listInquiries` / `listInquiryDetail` / `updateInquiry` はログイン済みの管理者・一般スタッフ向けのBackend RPCです。入出力型は `src/backend/main.ts` の `AppType` から推論します。
+
+- 登録入力は `subject`（必須・200字以内）、`description`（必須）、既存の `customerId`、`channel`（電話／メール／来店／その他）。`assigneeId` は管理者のみ指定できます。IDは保存前に `Utilities.getUuid()` で確定し、登録者・受付日時・更新日時・未対応ステータス・初期version（1）はサーバーで設定します。
+- 一覧は `keyword`（件名・内容・顧客名の部分一致）、`statuses`（複数）、`channel`、`assignee`、`sortBy`、`direction`、`page` を受け取ります。`assignee` は `{ type: "all" | "me" | "unassigned" }` または `{ type: "specified", userId }`。省略時は管理者が全件、一般スタッフが自分の担当分です。初期順は `updatedAt` の `desc`、`receivedAt` と `asc` も指定できます。同日時はID昇順で固定します。
+- 一覧の `inquiries` は20件単位。`total`・`totalPages`・`statusCounts` はすべての検索条件（選択ステータスを含む）適用後の件数です。ページ範囲外は空配列です。小規模Sheets向けにRepositoryから閲覧可能な全問い合わせを一度取得し、サーバーのUseCaseで検索・ソート・集計・ページングを行います。キーワード指定時は顧客も読み込みます。データ件数増加時は取得量の見直しが必要です。
+- 詳細入力は `{ id }`。全スタッフが全件閲覧でき、顧客情報と登録者・担当者のID／氏名を返します。参照先がない場合の関連情報は `null` です。認証アカウントやパスワード情報は返しません。
+- 通常編集入力は `{ id, version, subject?, description?, customerId?, channel? }`。最新の担当者本人または管理者のみ可能で、未割当を一般スタッフは編集できません。完了時は管理者も編集できません。状態変更・担当変更は別Issueの対象です。未指定属性の保持と更新日時はDomainが担います。
+
+操作権限のMiddlewareに加え、Inquiry専用RLSをSheetORMへ適用します。認証済みセッションから最新の権限と管理者ロールを取得してPrincipalを構成し、終了時にクリアします。通常編集は既存トランザクション内で取得・Domainの編集制限・期待version・顧客参照を検証して保存します。SheetORMの `versionColumn` が保存時にversionを加算し、コミット後に再読込して返します。状態遷移／履歴を含む競合制御の完成とフロントの再編集導線はIssue #8で対応します。
+
+入力不正は `INVALID_INPUT`、未認証は `UNAUTHORIZED`、権限不足は `FORBIDDEN`、問い合わせ／顧客不在は `NOT_FOUND`、完了時の編集は `INQUIRY_COMPLETED`、期待version不一致は `CONFLICT` です。
+
+新規環境ではBootstrapがInquiryシートも準備します。初期設定済みSheetsでは `Inquiry` シートを追加し、1行目に `subject`, `description`, `customerId`, `channel`, `id`, `assigneeId`, `status`, `createdBy`, `receivedAt`, `updatedAt`, `version` の列をこの順で用意してください。受付日時・更新日時はUTCのISO形式で保存します。Domain、実Repository、4 UseCase、4 RPC、専用RLSのテストは既存のIn-Memory環境で実行します。

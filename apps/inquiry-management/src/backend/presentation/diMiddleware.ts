@@ -1,4 +1,5 @@
-import { authorization } from "../lib/auth";
+import type { InquiryActor } from "../domain/Inquiry";
+import { authorization, authorizationRepository } from "../lib/auth";
 import { policy } from "../../shared/policy";
 import type { AppsScriptMiddleware } from "@gasboost/app";
 import type { AuthState } from "@gasboost/auth-app";
@@ -6,6 +7,7 @@ import { container, type DiContainer } from "../lib/di";
 
 type DiState = {
   container: DiContainer;
+  inquiryActor: InquiryActor;
 };
 
 export const diMiddleware: AppsScriptMiddleware<
@@ -18,7 +20,15 @@ export const diMiddleware: AppsScriptMiddleware<
   db.setPrincipal({ userId: session.userId });
   try {
     const permissions = await authorization.resolve(session.userId);
+    const isAdmin = (
+      await authorizationRepository.role.findByUserId(session.userId)
+    ).includes("管理者");
+    context.state.set("inquiryActor", { userId: session.userId, isAdmin });
     db.setPrincipal({
+      isAdmin,
+      inquiryRead: policy.can(permissions, { inquiry: ["read"] }),
+      inquiryCreate: policy.can(permissions, { inquiry: ["create"] }),
+      inquiryUpdate: policy.can(permissions, { inquiry: ["update"] }),
       userId: session.userId,
       customerRead: policy.can(permissions, { customer: ["read"] }),
       customerCreate: policy.can(permissions, { customer: ["create"] }),

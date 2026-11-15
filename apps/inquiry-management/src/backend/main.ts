@@ -1,4 +1,11 @@
 import {
+  createInquiryInput,
+  listInquiriesInput,
+  inquiryIdInput,
+  updateInquiryInput,
+} from "./presentation/inquirySchemas";
+import { inquiryErrorHandler } from "./presentation/inquiryErrorHandler";
+import {
   AppsScript,
   AppsScriptError,
   type InferAppsScript,
@@ -88,6 +95,72 @@ const app = new AppsScript()
       }
     },
     [authorize(authorization, { customer: ["update"] })],
+  )
+  .use(inquiryErrorHandler)
+
+  .call(
+    "createInquiry",
+    (input: z.input<typeof createInquiryInput>, context) => {
+      const parsed = createInquiryInput.safeParse(input);
+      if (!parsed.success)
+        throw new AppsScriptError({
+          code: "INVALID_INPUT",
+          message: "問い合わせの入力が正しくありません。",
+        });
+      return context.state
+        .get("container")
+        .resolve("createInquiry")
+        .execute(parsed.data, context.state.get("inquiryActor"));
+    },
+    [authorize(authorization, { inquiry: ["create"] })],
+  )
+  .call(
+    "listInquiries",
+    (input: z.input<typeof listInquiriesInput>, context) => {
+      const parsed = listInquiriesInput.safeParse(input);
+      if (!parsed.success)
+        throw new AppsScriptError({
+          code: "INVALID_INPUT",
+          message: "問い合わせの入力が正しくありません。",
+        });
+      return context.state
+        .get("container")
+        .resolve("listInquiries")
+        .execute(parsed.data, context.state.get("inquiryActor"));
+    },
+    [authorize(authorization, { inquiry: ["read"] })],
+  )
+  .call(
+    "listInquiryDetail",
+    (input: z.input<typeof inquiryIdInput>, context) => {
+      const parsed = inquiryIdInput.safeParse(input);
+      if (!parsed.success)
+        throw new AppsScriptError({
+          code: "INVALID_INPUT",
+          message: "問い合わせの入力が正しくありません。",
+        });
+      return context.state
+        .get("container")
+        .resolve("listInquiryDetail")
+        .execute(parsed.data);
+    },
+    [authorize(authorization, { inquiry: ["read"] })],
+  )
+  .call(
+    "updateInquiry",
+    (input: z.input<typeof updateInquiryInput>, context) => {
+      const parsed = updateInquiryInput.safeParse(input);
+      if (!parsed.success)
+        throw new AppsScriptError({
+          code: "INVALID_INPUT",
+          message: "問い合わせの入力が正しくありません。",
+        });
+      return context.state
+        .get("container")
+        .resolve("updateInquiry")
+        .execute(parsed.data, context.state.get("inquiryActor"));
+    },
+    [authorize(authorization, { inquiry: ["update"] })],
   );
 
 export default app;
