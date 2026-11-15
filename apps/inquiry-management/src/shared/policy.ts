@@ -1,4 +1,7 @@
 import { AuthorizationPolicy } from "@gasboost/auth/authorization";
 
-// Define application permissions and role grants when adding business features.
-export const policy = new AuthorizationPolicy({});
+export const policy = new AuthorizationPolicy({
+  customer: ["read", "create", "update"],
+})
+  .linkRole("管理者", { customer: ["read", "create", "update"] })
+  .linkRole("一般スタッフ", { customer: ["read", "create", "update"] });

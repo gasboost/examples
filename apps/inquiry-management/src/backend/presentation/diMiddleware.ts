@@ -1,3 +1,5 @@
+import { authorization } from "../lib/auth";
+import { policy } from "../../shared/policy";
 import type { AppsScriptMiddleware } from "@gasboost/app";
 import type { AuthState } from "@gasboost/auth-app";
 import { container, type DiContainer } from "../lib/di";
@@ -15,6 +17,13 @@ export const diMiddleware: AppsScriptMiddleware<
   const db = container.resolve("db");
   db.setPrincipal({ userId: session.userId });
   try {
+    const permissions = await authorization.resolve(session.userId);
+    db.setPrincipal({
+      userId: session.userId,
+      customerRead: policy.can(permissions, { customer: ["read"] }),
+      customerCreate: policy.can(permissions, { customer: ["create"] }),
+      customerUpdate: policy.can(permissions, { customer: ["update"] }),
+    });
     return await next();
   } finally {
     // SheetDB is shared; never retain a request's identity after it finishes.

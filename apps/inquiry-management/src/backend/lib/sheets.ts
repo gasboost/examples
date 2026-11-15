@@ -1,5 +1,9 @@
 import { SheetGateway, SheetTable } from "@gasboost/sheetorm";
-import { authTables, authorizationTables } from "../../shared/tables";
+import {
+  authTables,
+  authorizationTables,
+  customerTable,
+} from "../../shared/tables";
 
 function resolveSpreadsheetId(): string {
   const configured = PropertiesService.getScriptProperties().getProperty(
@@ -11,6 +15,10 @@ function resolveSpreadsheetId(): string {
 }
 export const spreadsheetId = resolveSpreadsheetId();
 export const sheetTables = [
+  new SheetTable({
+    ...customerTable,
+    dbId: spreadsheetId,
+  }),
   new SheetTable({ ...authTables.user, dbId: spreadsheetId }),
   new SheetTable({ ...authTables.account, dbId: spreadsheetId }),
   new SheetTable({ ...authTables.passwordReset, dbId: spreadsheetId }),

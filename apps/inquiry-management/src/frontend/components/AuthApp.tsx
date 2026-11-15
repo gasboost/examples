@@ -1,3 +1,4 @@
+import { CustomersPage } from "../features/customers/CustomersPage";
 import { Navigate, Outlet, Route, Routes, useNavigate } from "react-router-dom";
 import { routes } from "../../shared/routes";
 import { BootstrapPage } from "./BootstrapPage";
@@ -41,6 +42,7 @@ export function AuthApp({
           />
           <Route element={<AuthGuard />}>
             <Route path={routes.home} element={<Account />} />
+            <Route path={routes.customers} element={<CustomersPage />} />
             <Route path={routes.system.forbidden} element={<ForbiddenPage />} />
           </Route>
           <Route path="*" element={<Navigate to={routes.home} replace />} />
@@ -57,6 +59,7 @@ function Account() {
     <main className="space-y-4 p-6">
       <h1>GAS BOOST</h1>
       <p>{user?.name}</p>
+      <Link to={routes.customers}>顧客管理</Link>
       {failed && (
         <p role="alert">ログアウトできませんでした。再試行してください。</p>
       )}

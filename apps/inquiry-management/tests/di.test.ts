@@ -40,10 +40,22 @@ test("authenticated handlers resolve existing dependencies and use only the sess
       const di = context.state.get("container");
       expect(context.state.get("session").userId).toBe("user-a");
       expect(di).toBe(container);
-      expect(Object.keys(di.registrations).sort()).toEqual(["auth", "db"]);
+      expect(Object.keys(di.registrations).sort()).toEqual([
+        "auth",
+        "createCustomer",
+        "customerRepository",
+        "db",
+        "listCustomers",
+        "updateCustomer",
+      ]);
       expect(di.resolve("db")).toBe(db);
       expect(di.resolve("auth")).toBe(auth);
-      expect(db.principal).toEqual({ userId: "user-a" });
+      expect(db.principal).toEqual({
+        userId: "user-a",
+        customerRead: false,
+        customerCreate: false,
+        customerUpdate: false,
+      });
       handler();
       return "ok";
     },
@@ -65,6 +77,9 @@ test("consecutive users replace the whole principal and clear it after async han
     await Promise.resolve();
     expect(db.principal).toEqual({
       userId: context.state.get("session").userId,
+      customerRead: false,
+      customerCreate: false,
+      customerUpdate: false,
     });
     return { ...db.principal };
   });
@@ -74,7 +89,12 @@ test("consecutive users replace the whole principal and clear it after async han
     const response = await testApp.dispatch("testDiUserSwitch", undefined, {
       [AUTH_METADATA_KEY]: { token: session.id },
     });
-    expect(JSON.parse(response.contents)).toEqual({ userId: session.userId });
+    expect(JSON.parse(response.contents)).toEqual({
+      userId: session.userId,
+      customerRead: false,
+      customerCreate: false,
+      customerUpdate: false,
+    });
     expect(db.principal).toEqual({});
   }
 });
@@ -101,8 +121,28 @@ test.each(["throw", "reject"])(
     ).rejects.toThrow("INTERNAL_ERROR");
     expect(principals).toEqual(
       failure === "throw"
-        ? [{ userId: "user-a" }]
-        : [{ userId: "user-a" }, { userId: "user-a" }],
+        ? [
+            {
+              userId: "user-a",
+              customerRead: false,
+              customerCreate: false,
+              customerUpdate: false,
+            },
+          ]
+        : [
+            {
+              userId: "user-a",
+              customerRead: false,
+              customerCreate: false,
+              customerUpdate: false,
+            },
+            {
+              userId: "user-a",
+              customerRead: false,
+              customerCreate: false,
+              customerUpdate: false,
+            },
+          ],
     );
     expect(db.principal).toEqual({});
 
@@ -117,7 +157,12 @@ test.each(["throw", "reject"])(
       undefined,
       { [AUTH_METADATA_KEY]: { token: "session-b" } },
     );
-    expect(JSON.parse(response.contents)).toEqual({ userId: "user-b" });
+    expect(JSON.parse(response.contents)).toEqual({
+      userId: "user-b",
+      customerRead: false,
+      customerCreate: false,
+      customerUpdate: false,
+    });
     expect(db.principal).toEqual({});
   },
 );
@@ -145,7 +190,16 @@ test("authentication blocks missing, unknown and expired sessions after a succes
     { [AUTH_METADATA_KEY]: { token: "session-a" } },
   ]) {
     await expect(
-      testApp.dispatch("testDiProtected", { userId: "user-a" }, metadata),
+      testApp.dispatch(
+        "testDiProtected",
+        {
+          userId: "user-a",
+          customerRead: false,
+          customerCreate: false,
+          customerUpdate: false,
+        },
+        metadata,
+      ),
     ).rejects.toThrow("UNAUTHORIZED");
     expect(db.principal).toEqual({});
   }
