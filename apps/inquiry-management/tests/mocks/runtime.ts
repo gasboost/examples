@@ -1,19 +1,41 @@
-import { afterEach, vi } from "vitest";
+import {
+  InMemoryPropertiesService,
+  InMemoryCacheService,
+  InMemoryContext,
+  InMemorySession,
+  SecurityPolicy,
+} from "@gasboost/fake-core";
+import { NodeLockService, NodeUtilities } from "@gasboost/fake-node";
+import { SpreadsheetAppStub, SheetsStub } from "@gasboost/sheetorm";
+import { vi } from "vitest";
 
-// Only GAS built-ins are replaced. Handlers and RPC dispatch use the real app.
-vi.stubGlobal("HtmlService", {
-  createHtmlOutputFromFile: (filename: string) => ({
-    filename,
-    title: "",
-    setTitle(title: string) {
-      this.title = title;
-      return this;
+vi.stubGlobal(
+  "PropertiesService",
+  new InMemoryPropertiesService({
+    script: {
+      GASBOOST_SPREADSHEET_ID: "integration-test",
+      AUTH_PEPPER: "integration-test-only",
     },
   }),
-});
-
-afterEach(() => vi.restoreAllMocks());
-
-// Install before @gasboost/client captures the GAS browser global.
-export const gasBrowser = { script: { run: {} as object } };
-vi.stubGlobal("google", gasBrowser);
+);
+vi.stubGlobal("CacheService", new InMemoryCacheService());
+vi.stubGlobal(
+  "LockService",
+  new NodeLockService({ scriptId: "integration-tests", userId: "test-user" }),
+);
+vi.stubGlobal("Utilities", new NodeUtilities());
+vi.stubGlobal(
+  "Session",
+  new InMemorySession(
+    new InMemoryContext(
+      "",
+      "",
+      { type: "WEB_APP", executeAs: "USER" },
+      new SecurityPolicy([]),
+      "ja",
+      "Asia/Tokyo",
+    ),
+  ),
+);
+vi.stubGlobal("SpreadsheetApp", SpreadsheetAppStub);
+vi.stubGlobal("Sheets", SheetsStub);

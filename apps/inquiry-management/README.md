@@ -1,75 +1,78 @@
 # 問い合わせ管理
 
-`@gasboost/app` / `@gasboost/client` / `@gasboost/vite` を利用した、公式サンプルの独立したアプリ基盤です。現在は型付き RPC による接続確認画面のみを実装しています。認証・問い合わせ・顧客・スタッフの機能は後続 Issue で実装します。機能要件は [REQUIREMENTS.md](REQUIREMENTS.md) を参照してください。
+`@gasboost/create@0.2.0` の CLI で生成した公式サンプルのアプリ基盤です。合意済み仕様は [REQUIREMENTS.md](REQUIREMENTS.md) を参照してください。問い合わせ・顧客・スタッフの業務機能は後続 Issue で追加します。
 
-## 開発
+## 生成元と調整範囲
 
-Node.js 24 以上、pnpm 10.18.0 が必要です。最初にリポジトリルートで `pnpm install` を実行してください。その後はこのディレクトリをカレントディレクトリとして実行できます。
+旧アプリを削除し、リポジトリルートから次を実行しました。`REQUIREMENTS.md` のみ退避して生成後に復元しています。
 
 ```sh
-pnpm dev
-pnpm typecheck
+pnpm dlx @gasboost/create apps/inquiry-management
+```
+
+| Capability               | 選択 |
+| ------------------------ | ---- |
+| Database (Sheets)        | Yes  |
+| Authentication           | Yes  |
+| Frontend (React)         | Yes  |
+| Realtime (Firebase RTDB) | No   |
+
+Frontend は create が shadcn CLI 経由で導入する `gasboost/ui/frontend-auth` 由来です。`App.tsx` / `main.tsx`、Bootstrap、AuthContext、Guard、認可・認証テーブル、`sheets.ts` → `db.ts`、Runtime / DB Fake、`BUILD_TARGET` によるビルド分岐を利用しています。
+
+生成後の調整は workspace のパッケージ名、format / lint、README、および合意済み email/password 認証に必要な設定と導線です。Google アカウントでの通常ログインと公開サインアップは無効にしています。初期管理者の作成は既存 Bootstrap が effective user を確認して行います。
+
+メール認証画面も手作りせず、アプリディレクトリで既存 Registry を追加しました。
+
+```sh
+pnpm dlx shadcn@latest add gasboost/ui/sign-in-page gasboost/ui/forgot-password-page gasboost/ui/reset-password-page --yes
+```
+
+`AuthApp` の認証ルートだけを、ログイン・パスワード設定／再設定に接続しています。接続確認専用 RPC、ダミー業務テーブル、空の業務レイヤーはありません。
+
+## ローカル開発
+
+Node.js 24 以上と pnpm 10.18.0 を使用します。最初にリポジトリルートでインストールします。
+
+```sh
+pnpm install
+pnpm --dir apps/inquiry-management dev
+```
+
+ターミナルに表示される **`Local bootstrap:` の URL** を開き、「初期設定を開始」を押します。既存 Bootstrap がインメモリ DB の準備と初期管理者登録を行います。ローカルのユーザーは `developer@localhost.invalid` です。必要なら `GASBOOST_LOCAL_USER_EMAIL` 環境変数で変更できます。
+
+初期化後、ターミナルに **`Local password email (not sent):`** として表示される URL からパスワードを設定してください。その後、メールアドレスと設定したパスワードでログインできます。ログイン画面のリンクからパスワード設定・再設定画面にも移動できます。
+
+ローカルの DB・セッション・初期化状態・認証用 pepper はインメモリです。開発サーバー再起動時にリセットされるため、再度 Bootstrap から操作してください。ローカルでは実メール送信や実 Sheets への接続を行いません。
+
+## 品質チェックとビルド
+
+このディレクトリから実行できます。
+
+```sh
 pnpm format
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm build
+pnpm console
 ```
 
-`pnpm dev` が表示するローカル URL を開くと、接続確認 RPC が実際のバックエンド Handler を呼び出します。`@gasboost/vite` が開発時だけ `google.script.run` を Local RPC (`POST /__gasboost/getApplicationStatus`) へ差し替えるため、GAS への接続や秘密設定は不要です。現在の RPC は外部サービスを利用しません。Sheets や認証を追加するときに GAS 境界の Fake を拡張します。
+`test` は create の設定どおり、業務テスト追加前のゼロ件を許容します。`tests/mocks/runtime.ts` は既存 GAS Fake を登録し、`tests/mocks/db.ts` は `sheets.ts` の Gateway のみを InMemoryGateway に差し替えます。後続機能のテストはこの基盤を利用します。
 
-ビルドは client → server の順に実行し、`dist/` に次の GAS 配信用ファイルをまとめます。
+Prettier は生成物も含めて整形します。Biome は TypeScript / JSON / CSS を検証し、Tailwind CSS v4 の構文を有効にしています。GAS の HTML テンプレート構文は Prettier で検証します。shadcn の汎用 Label / InputGroup が props で制御するラベル・キーボード操作に対してのみ、Biome の静的判定を限定調整しています。
 
-- `index.html` — JavaScript / CSS を内包した単一 HTML
-- `main.js` — `doGet` と `getApplicationStatus` を公開する GAS コード
-- `appsscript.json` — V8 / Asia/Tokyo / 自分のみアクセス可能な Web アプリ設定
+ビルドは create の `clean` → `build:client` → `build:server` → `build:manifest` を使用します。client / server は `BUILD_TARGET` で切り替え、`dist/` に単一 `index.html`、`main.js`、`appsscript.json` を出力します。ビルド時の解析には専用の Fake Properties を渡しますが、本番の設定値は GAS 実行時に読み込みます。
 
-`build:client` は `dist/` を初期化し、`build:server` は同じ場所に追記します。配布物を作る場合は必ず `pnpm build` を使ってください。
+ルートの動的 Matrix CI は変更したアプリだけを検証します。共通設定変更は全アプリを対象にし、変更アプリがゼロ件でも `CI required` が成功します。
 
-## テスト
+## 自分の GAS 環境で利用する場合
 
-Vitest で実際の AppsScript dispatch と型付き client の接続を確認します。React Testing Library のテストでは実際の QueryClient と画面を使い、GAS ブラウザ API 境界のみを Fake に置き換えます。GAS サービスの Fake は `tests/mocks/runtime.ts` に置き、`setupFiles` から読み込みます。
+実環境へのデプロイは CI に含めません。create 生成の `gasboost.config.ts` と `appsscript.json` を利用し、`pnpm console` から自分の GAS プロジェクトを設定してください。
 
-CI では format / lint / typecheck / build / Vitest を実行します。テストゼロ件を許容するオプションは設けず、機能追加と同時にテストを追加します。Playwright と実 GAS の検証はこの基盤 Issue の対象外です。
+- Google Sheets を用意し、Script Properties の `GASBOOST_SPREADSHEET_ID` に ID を設定します。
+- 十分にランダムな `AUTH_PEPPER` を Script Properties に設定します。ローカル用・ビルド用の値は実環境で使用しません。
+- manifest に含まれる Sheets API と、プロジェクト側で必要な API を有効にします。
+- Web アプリの実行ユーザー・公開範囲を社内運用に合わせて設定し、初期化はデプロイ実行者本人が行います。
+- パスワード設定メールのリンクには `ScriptApp.getService().getUrl()` を使用します。必要なら Script Properties の `APP_URL` に `/exec` URL を明示できます。実環境では MailApp がメールを送信します。
 
-## 構成・依存方向
-
-```text
-src/shared/                  純粋な共有定義（React / GAS に依存しない）
-src/backend/main.ts          AppsScript の組み立てと型契約
-src/backend/domain/          業務ルール（機能追加時に実装）
-src/backend/application/     UseCase / Repository 契約（同上）
-src/backend/infrastructure/  Repository の具象実装（同上）
-src/backend/presentation/    RPC / Handler
-src/frontend/                React UI / 型付き client / queryOptions
-tests/mocks/                 実行環境の境界 Fake
-```
-
-Domain / Application から Infrastructure へ依存せず、必要になった時点で `backend/main.ts` から DI で接続します。Frontend が参照する Backend は `AppType` の `import type` のみで、バックエンドの実行処理は client bundle に入りません。
-
-### UI の追加
-
-`components.json` は `gasboost/ui` と同じ shadcn のエイリアス・Tailwind CSS v4 の構成です。`@gasboost/ui` は npm の UI 部品集ではなく [shadcn GitHub registry](https://github.com/gasboost/ui) として利用します。認証画面・Guard・エラー画面を実装する際には、既存の registry 項目を導入し、同等機能を自作しません。
-
-```sh
-pnpm dlx shadcn@latest add gasboost/ui/auth-client gasboost/ui/guard
-```
-
-これは後続機能での導入例です。registry が生成する認証 API・共有 policy とバックエンドを合わせて実装してください。画面レイアウトは shadcn/ui Blocks を基盤にします。現在の接続確認ページは認証 UI や独自コンポーネントシステムを含みません。
-
-## 自分の GAS への配置
-
-この基盤では Sheets の作成や初期管理者の登録はまだ必要ありません。実 GAS へのデプロイは CI に含めません。
-
-手動確認する場合は、GAS 設定で Apps Script API を有効にし、次をこのディレクトリで実行します。
-
-```sh
-pnpm build
-pnpm dlx @google/clasp login
-pnpm dlx @google/clasp create --type webapp --title inquiry-management --rootDir dist
-pnpm dlx @google/clasp push
-pnpm dlx @google/clasp open-script
-```
-
-GAS エディタから「デプロイ → 新しいデプロイ → ウェブアプリ」を選び、実行ユーザーを自分、アクセスできるユーザーを自分のみにしてデプロイします。発行された `/exec` URL で接続済み表示を確認します。`clasp create` 後に manifest が変更された場合は、再度 `pnpm build` してから push してください。`.clasp.json` と認証情報はコミットしません。
-
-この PR ではローカル RPC とビルドを確認し、実 GAS への配置は実施していません。
+認証・Bootstrap 自体は既存ライブラリを使います。スタッフ追加・ロール設計・無効化などは後続 Issue の対象です。本 PR での検証はローカルの Bootstrap / 認証導線とビルドまでで、実 GAS へのデプロイは行っていません。

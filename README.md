@@ -7,7 +7,7 @@ pnpm install
 pnpm --dir apps/inquiry-management dev
 ```
 
-- [問い合わせ管理](apps/inquiry-management/README.md) — GAS / React のアプリ基盤
+- [問い合わせ管理](apps/inquiry-management/README.md) — create CLI + frontend-auth Registry による Sheets / 認証 / React のアプリ基盤
 
 ## 品質チェック
 
