@@ -1,4 +1,6 @@
-import { Customers } from "../application/Customers";
+import { ListCustomers } from "../application/ListCustomers";
+import { CreateCustomer } from "../application/CreateCustomer";
+import { UpdateCustomer } from "../application/UpdateCustomer";
 import type { CustomerRepository } from "../application/CustomerRepository";
 import { SheetCustomerRepository } from "../infrastructure/SheetCustomerRepository";
 import { asFunction, asValue, createContainer, InjectionMode } from "awilix";
@@ -7,7 +9,9 @@ import { db } from "./db";
 
 type Dependencies = {
   customerRepository: CustomerRepository;
-  customers: Customers;
+  listCustomers: ListCustomers;
+  createCustomer: CreateCustomer;
+  updateCustomer: UpdateCustomer;
   db: typeof db;
   auth: typeof auth;
 };
@@ -20,13 +24,21 @@ container.register({
   customerRepository: asFunction(
     ({ db }: Dependencies) => new SheetCustomerRepository(db),
   ).singleton(),
-  customers: asFunction(
+  listCustomers: asFunction(
     ({ customerRepository }: Dependencies) =>
-      new Customers(
+      new ListCustomers(customerRepository),
+  ).singleton(),
+  createCustomer: asFunction(
+    ({ customerRepository }: Dependencies) =>
+      new CreateCustomer(
         customerRepository,
         () => Utilities.getUuid(),
-        () => new Date().toISOString(),
+        () => new Date(),
       ),
+  ).singleton(),
+  updateCustomer: asFunction(
+    ({ customerRepository }: Dependencies) =>
+      new UpdateCustomer(customerRepository, () => new Date()),
   ).singleton(),
   db: asValue(db),
   auth: asValue(auth),

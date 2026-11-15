@@ -7,7 +7,7 @@ import { resetDatabase } from "../mocks/db";
 
 const repository = new SheetCustomerRepository(db);
 const id = "11111111-1111-4111-8111-111111111111";
-const now = "2026-11-15T00:00:00.000Z";
+const now = new Date("2026-11-15T00:00:00.000Z");
 beforeEach(async () => {
   resetDatabase();
   await authorization.role.assign("staff", "一般スタッフ");
@@ -35,13 +35,37 @@ test("real SheetORM round-trips a Customer and updates every field", () => {
     now,
   );
   repository.save(original);
-  expect(repository.find(id)).toEqual(original);
+  const [stored] = db.table("Customer").find();
+  expect(stored).toEqual({
+    id,
+    name: "山田",
+    email: "yamada@example.com",
+    phone: "03-1234",
+    note: "改行\n備考",
+    createdAt: "2026-11-15T00:00:00.000Z",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  });
+  const restored = repository.find(id);
+  expect(restored).toBeInstanceOf(Customer);
+  expect(restored).toEqual(original);
+  expect(restored?.createdAt).toBeInstanceOf(Date);
   const updated = original.update(
     { name: "佐藤", email: "", phone: "", note: "新しい備考" },
-    "2026-11-15T01:00:00.000Z",
+    new Date("2026-11-15T01:00:00.000Z"),
   );
   repository.transaction(() => repository.save(updated));
-  expect(new SheetCustomerRepository(db).find(id)).toEqual(updated);
+  db.definition("Customer").cache.clear();
+  const reloaded = new SheetCustomerRepository(db).find(id);
+  expect(reloaded).toEqual(updated);
+  expect(reloaded?.updatedAt).toEqual(new Date("2026-11-15T01:00:00.000Z"));
+  expect(db.table("Customer").find()[0]).toEqual({
+    ...stored,
+    name: "佐藤",
+    email: "",
+    phone: "",
+    note: "新しい備考",
+    updatedAt: "2026-11-15T01:00:00.000Z",
+  });
   expect(repository.find("22222222-2222-4222-8222-222222222222")).toBeNull();
 });
 

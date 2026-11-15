@@ -12,7 +12,9 @@
 | Presentation / `presentation/`     | AppsScript RPC / Handler / Middleware、入力・出力の境界、認証・認可の適用                                     |
 
 - Domainは他の3層に依存しない。ApplicationはDomainとApplication側のinterfaceを使用し、Infrastructureの具象に依存しない。InfrastructureはApplicationのinterfaceとDomainに依存し、PresentationはApplicationを呼び出す。具象の接続は既存DI基盤で行う。
-- Applicationにドメインロジックを実装しない。業務判断はDomainへ委譲する。ApplicationからDomainオブジェクトを返さず、境界で外部向け結果へ変換する。
+- **1 UseCase（1操作）= 1クラス**とし、各クラスは単一の `execute` を持つ。複数APIを `Customers` 等の1クラスに集約しない。DI登録・Handlerからのresolve・Application結合テストもUseCase単位にする。1 Issueに複数APIを含むことと、1クラスに複数操作を含むことは別である。
+- **Domainは永続化・通信形式を知らない。** `toRecord()` / `fromRecord()` 等の永続化都合のメソッド（単なる改名も含む）、SheetORM Record・保存用Schema・RPC DTOへの依存を禁止する。DomainとRecordの変換はInfrastructureのRepositoryが担当する。Domainは業務上の属性・不変条件・状態変更に専念する。
+- **ApplicationはDomainも永続化Recordも戻り値にしない。** 業務ロジックはDomainへ、永続化はRepositoryへ委譲し、APIが必要とする結果を返す。永続化RecordをそのままAPIの戻り値として流用しない。
 - **ヘルパー関数とprivate methodは禁止。** 処理をそれらに押し込んで責務の混在を隠さず、適切なクラス・オブジェクト・層へ責務を分離する。
 - 実際の機能に必要なものだけ実装する。目的なくレイヤーごとの空ファイルやinterfaceを一括生成しない。
 
@@ -45,6 +47,7 @@
 | Application / UseCase       | 結合テスト。実UseCaseと実Repositoryを接続して処理結果を検証する                                               | 外部環境のIn-Memory Fakeは可。**Repositoryのモックは禁止** |
 | Presentation / API          | **APIごとに結合テスト**。実際の認証・認可Middlewareを通り、Handlerから正しいUseCaseが呼ばれることまで検証する | **UseCaseのモックは可**。認証・認可Middlewareは実物        |
 
+- **UseCaseごとの実Repository結合テスト、およびRepositoryの保存・復元・再読込テストを必須**とする。Domain単体テストは不変条件・業務操作を対象とし、永続化マッピングを検証しない。
 - RLSは **専用のテストファイル** で検証する。権限のあるPrincipal・ないPrincipal、許可・拒否の代表ケースを含める。
 - Fake化するのは外部環境・GAS組み込みサービス等の境界。Application結合テストでRepositoryをモックして通さない。
 - `tests/mocks/` にGASランタイム・SheetORM用のIn-Memory Fakeと共通テスト環境を集約する。現行の `runtime.ts`・`db.ts` とVitestの `setupFiles` を確認して再利用し、各テストで勝手にFakeを量産しない。

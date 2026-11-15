@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import app from "../../src/backend/main";
 import { authorization } from "../../src/backend/lib/auth";
 import { db } from "../../src/backend/lib/db";
+import { container } from "../../src/backend/lib/di";
 import { resetDatabase } from "../mocks/db";
 import { authenticated } from "../mocks/auth";
 
@@ -13,76 +14,113 @@ beforeEach(async () => {
   await authorization.role.assign("staff", "一般スタッフ");
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   db.setPrincipal({});
   resetDatabase();
   CacheService.getScriptCache().removeAll(["admin", "staff", "outsider"]);
 });
 
 test.each(["admin", "staff"])(
-  "%s can call each API through real auth middleware, DI, use case and repository",
+  "listCustomers dispatches to ListCustomers with real auth middleware for %s",
+  async (userId) => {
+    const execute = vi.spyOn(container.resolve("listCustomers"), "execute");
+    const result = JSON.parse(
+      (
+        await app.dispatch(
+          "listCustomers",
+          { keyword: "不在", page: 2 },
+          authenticated(userId),
+        )
+      ).contents,
+    );
+    expect(execute).toHaveBeenCalledExactlyOnceWith({
+      keyword: "不在",
+      page: 2,
+      pageSize: 20,
+    });
+    expect(result).toEqual({
+      customers: [],
+      total: 0,
+      page: 2,
+      pageSize: 20,
+      totalPages: 0,
+    });
+    expect(db.principal).toEqual({});
+  },
+);
+
+test.each(["admin", "staff"])(
+  "createCustomer dispatches to CreateCustomer with real auth middleware for %s",
+  async (userId) => {
+    const execute = vi.spyOn(container.resolve("createCustomer"), "execute");
+    const result = JSON.parse(
+      (
+        await app.dispatch(
+          "createCustomer",
+          { name: " 山田 ", email: "a@example.com", phone: "03", note: "備考" },
+          authenticated(userId),
+        )
+      ).contents,
+    );
+    expect(execute).toHaveBeenCalledExactlyOnceWith({
+      name: "山田",
+      email: "a@example.com",
+      phone: "03",
+      note: "備考",
+    });
+    expect(result).toMatchObject({
+      name: "山田",
+      email: "a@example.com",
+      phone: "03",
+      note: "備考",
+    });
+    expect(result.id).toMatch(/^[0-9a-f-]{36}$/);
+    const listed = JSON.parse(
+      (
+        await app.dispatch(
+          "listCustomers",
+          { keyword: "山田" },
+          authenticated(userId),
+        )
+      ).contents,
+    );
+    expect(listed.customers).toEqual([result]);
+    expect(db.principal).toEqual({});
+  },
+);
+
+test.each(["admin", "staff"])(
+  "updateCustomer dispatches to UpdateCustomer with real auth middleware for %s",
   async (userId) => {
     const metadata = authenticated(userId);
     const created = JSON.parse(
       (
         await app.dispatch(
           "createCustomer",
-          { name: " 山田 ", email: "a@example.com", phone: "03", note: "備考" },
+          { name: "山田", email: "a@example.com", phone: "03", note: "備考" },
           metadata,
         )
       ).contents,
     );
-    expect(created).toMatchObject({
-      name: "山田",
-      email: "a@example.com",
-      phone: "03",
-      note: "備考",
-    });
-    expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
-    const updated = JSON.parse(
-      (
-        await app.dispatch(
-          "updateCustomer",
-          {
-            id: created.id,
-            name: "山田 花子",
-            email: "",
-            phone: "",
-            note: "変更",
-          },
-          metadata,
-        )
-      ).contents,
-    );
-    expect(updated).toMatchObject({
+    const execute = vi.spyOn(container.resolve("updateCustomer"), "execute");
+    const input = {
       id: created.id,
       name: "山田 花子",
       email: "",
       phone: "",
       note: "変更",
-      createdAt: created.createdAt,
-    });
-    const listed = JSON.parse(
-      (
-        await app.dispatch(
-          "listCustomers",
-          { keyword: "花子", page: 1 },
-          metadata,
-        )
-      ).contents,
+    };
+    const result = JSON.parse(
+      (await app.dispatch("updateCustomer", input, metadata)).contents,
     );
-    expect(listed).toEqual({
-      customers: [updated],
-      total: 1,
-      page: 1,
-      pageSize: 20,
-      totalPages: 1,
-    });
+    expect(execute).toHaveBeenCalledExactlyOnceWith(input);
+    expect(result).toMatchObject({ ...input, createdAt: created.createdAt });
     expect(
       JSON.parse(
-        (await app.dispatch("listCustomers", { keyword: "不在" }, metadata))
+        (await app.dispatch("listCustomers", { keyword: "花子" }, metadata))
           .contents,
       ).customers,
-    ).toEqual([]);
+    ).toEqual([result]);
     await expect(
       app.dispatch("updateCustomer", { id: missingId, name: "不在" }, metadata),
     ).rejects.toThrow("NOT_FOUND");
@@ -97,12 +135,19 @@ test.each([
 ])(
   "%s rejects unauthenticated and unprivileged callers",
   async (name, input) => {
+    const execute = vi.spyOn(
+      container.resolve(
+        name as "listCustomers" | "createCustomer" | "updateCustomer",
+      ),
+      "execute",
+    );
     for (const metadata of [undefined, authenticated("outsider")]) {
       await expect(
         app.dispatch(name as string, input, metadata),
       ).rejects.toThrow(metadata ? "FORBIDDEN" : "UNAUTHORIZED");
       expect(db.principal).toEqual({});
     }
+    expect(execute).not.toHaveBeenCalled();
   },
 );
 

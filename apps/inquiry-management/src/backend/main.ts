@@ -10,7 +10,7 @@ import {
   authorization as authorize,
 } from "@gasboost/auth-app";
 import type { z } from "zod";
-import { CustomerNotFound } from "./application/Customers";
+import { CustomerNotFound } from "./application/UpdateCustomer";
 import {
   createCustomerInput,
   listCustomersInput,
@@ -43,8 +43,8 @@ const app = new AppsScript()
         });
       return context.state
         .get("container")
-        .resolve("customers")
-        .list(parsed.data);
+        .resolve("listCustomers")
+        .execute(parsed.data);
     },
     [authorize(authorization, { customer: ["read"] })],
   )
@@ -59,8 +59,8 @@ const app = new AppsScript()
         });
       return context.state
         .get("container")
-        .resolve("customers")
-        .create(parsed.data);
+        .resolve("createCustomer")
+        .execute(parsed.data);
     },
     [authorize(authorization, { customer: ["create"] })],
   )
@@ -76,8 +76,8 @@ const app = new AppsScript()
       try {
         return context.state
           .get("container")
-          .resolve("customers")
-          .update(parsed.data);
+          .resolve("updateCustomer")
+          .execute(parsed.data);
       } catch (error) {
         if (error instanceof CustomerNotFound)
           throw new AppsScriptError({

@@ -42,9 +42,11 @@ test("authenticated handlers resolve existing dependencies and use only the sess
       expect(di).toBe(container);
       expect(Object.keys(di.registrations).sort()).toEqual([
         "auth",
+        "createCustomer",
         "customerRepository",
-        "customers",
         "db",
+        "listCustomers",
+        "updateCustomer",
       ]);
       expect(di.resolve("db")).toBe(db);
       expect(di.resolve("auth")).toBe(auth);

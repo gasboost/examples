@@ -1,37 +1,58 @@
-import type { z } from "zod";
-import { customerFields, customerRecord } from "../../shared/schemas/customer";
+import { z } from "zod";
+
+const customerDetails = z.object({
+  name: z.string().trim().min(1, "氏名を入力してください。"),
+  email: z
+    .union([z.email("メールアドレスの形式が正しくありません。"), z.literal("")])
+    .optional(),
+  phone: z.string().optional(),
+  note: z.string().optional(),
+});
+export type CustomerDetails = z.infer<typeof customerDetails>;
+
+const customerAttributes = customerDetails.extend({
+  id: z.uuid(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
 
 export class Customer {
-  readonly data: Readonly<z.infer<typeof customerRecord>>;
+  readonly id: string;
+  readonly name: string;
+  readonly email: string | undefined;
+  readonly phone: string | undefined;
+  readonly note: string | undefined;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
 
-  constructor(data: z.infer<typeof customerRecord>) {
-    this.data = Object.freeze(customerRecord.parse(data));
-  }
-
-  static create(
-    fields: z.infer<typeof customerFields>,
-    id: string,
-    now: string,
+  constructor(
+    attributes: CustomerDetails & {
+      id: string;
+      createdAt: Date;
+      updatedAt: Date;
+    },
   ) {
-    return new Customer({
-      ...customerFields.parse(fields),
-      id,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const validated = customerAttributes.parse(attributes);
+    this.id = validated.id;
+    this.name = validated.name;
+    this.email = validated.email;
+    this.phone = validated.phone;
+    this.note = validated.note;
+    this.createdAt = new Date(validated.createdAt);
+    this.updatedAt = new Date(validated.updatedAt);
   }
 
-  update(fields: Partial<z.infer<typeof customerFields>>, now: string) {
+  static create(details: CustomerDetails, id: string, now: Date) {
+    return new Customer({ ...details, id, createdAt: now, updatedAt: now });
+  }
+
+  update(details: Partial<CustomerDetails>, now: Date) {
     return new Customer({
-      ...this.data,
+      ...this,
       ...Object.fromEntries(
-        Object.entries(fields).filter(([, value]) => value !== undefined),
+        Object.entries(details).filter(([, value]) => value !== undefined),
       ),
       updatedAt: now,
     });
-  }
-
-  toRecord() {
-    return { ...this.data };
   }
 }
