@@ -57,7 +57,7 @@ pnpm build
 pnpm console
 ```
 
-`test` は create の設定どおり、業務テスト追加前のゼロ件を許容します。`tests/mocks/runtime.ts` は既存 GAS Fake を登録し、`tests/mocks/db.ts` は `sheets.ts` の Gateway のみを InMemoryGateway に差し替えます。後続機能のテストはこの基盤を利用します。
+`test` は `tests/shared/` の Zod 契約・操作権限・テーブル登録・RLS を検証します。`tests/mocks/runtime.ts` は既存 GAS Fake を登録し、`tests/mocks/db.ts` は `sheets.ts` の Gateway のみを InMemoryGateway に差し替えます。Bootstrap が実際に作成した初期管理者への権限付与も検証します。RLS テストはテスト専用の SheetDB に共有 AST と Principal を接続し、実 SheetORM で更新前後の判定・他テーブル参照・禁止操作を評価します。
 
 Prettier は生成物も含めて整形します。Biome は TypeScript / JSON / CSS を検証し、Tailwind CSS v4 の構文を有効にしています。GAS の HTML テンプレート構文は Prettier で検証します。shadcn の汎用 Label / InputGroup が props で制御するラベル・キーボード操作に対してのみ、Biome の静的判定を限定調整しています。
 
