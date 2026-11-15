@@ -59,6 +59,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
+      awilix:
+        specifier: ^13.0.6
+        version: 13.0.6
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1507,6 +1510,10 @@ packages:
   atomically@1.7.0:
     resolution: {integrity: sha512-Xcz9l0z7y9yQ9rdDaxlmaI4uJHf/T8g9hOEzJcsEqX2SjCj4J20uK7+ldkDHMbpJDK76wF7xEIgxc/vSlsfw5w==}
     engines: {node: '>=10.12.0'}
+
+  awilix@13.0.6:
+    resolution: {integrity: sha512-1ECxdwGDosaeNetnXHbRe49mtEtGDrLf6q+VmBnq7sXIp8zcyj/34by80d5C4AS6Cd1SGVC3PpGWQbMQTZk3Mw==}
+    engines: {node: '>=20.0.0'}
 
   b4a@1.9.0:
     resolution: {integrity: sha512-dpfcF9fDNR6++cthXR67iyhgqWy9CBouAvIWhIntzBG6cvK/cnIPiZQjBwi/ZqjjBEDGfoNDtmB0kTjroOJ3pQ==}
@@ -5938,6 +5945,10 @@ snapshots:
   asynckit@0.4.0: {}
 
   atomically@1.7.0: {}
+
+  awilix@13.0.6:
+    dependencies:
+      fast-glob: 3.3.3
 
   b4a@1.9.0: {}
 

@@ -3,6 +3,7 @@ import { authentication, authErrorHandler, handlers } from "@gasboost/auth-app";
 import { auth } from "./lib/auth";
 import { bootstrap } from "./lib/bootstrap";
 import { templateValue } from "./lib/templateValue";
+import { diMiddleware } from "./presentation/diMiddleware";
 
 const app = new AppsScript()
   .get((request) => {
@@ -13,7 +14,8 @@ const app = new AppsScript()
   .calls(bootstrap.handlers())
   .use(authErrorHandler())
   .calls(handlers(auth))
-  .use(authentication(auth));
+  .use(authentication(auth))
+  .use(diMiddleware);
 
 export default app;
 export type AppType = InferAppsScript<typeof app>;
